@@ -1,0 +1,87 @@
+<?php
+
+// توكن البوت
+$token = '8031140362:AAErrdZfWmSZpB-_Fvynx5g9OMw3Bg5zuHA';
+
+// آيدي المستخدم
+$user_id = '5738507139';
+
+// منصة التداول
+$platform = 'Pocket Broker';
+
+// أزواج العملات
+$symbols = array('EURUSD', 'USDJPY', 'GBPUSD');
+
+// مدة الشمعة
+$candle_duration = 60; // دقيقة
+
+// مؤشرات التحليل
+$indicators = array('SMA', 'EMA', 'RSI');
+
+// وظيفة لتحليل الشمعات
+function analyze_candles($symbol) {
+    global $token, $user_id, $platform, $candle_duration, $indicators;
+
+    // استقبال البيانات من Pocket Broker API
+    $url = 'https://api.pocketbroker.com/candles'; // يجب تحديد الرابط الصحيح
+    $headers = array('Authorization: Bearer ' . $token);
+    $params = array(
+        'symbol' => $symbol,
+        'duration' => $candle_duration
+    );
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params));
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    // التحقق من الاستجابة
+    if ($response === false) {
+        echo "خطأ في الاتصال بـ Pocket Broker API\n";
+        return;
+    }
+
+    $data = json_decode($response, true);
+    if (!isset($data['candles'])) {
+        echo "البيانات المستلمة غير صحيحة\n";
+        return;
+    }
+
+    // تحليل الشمعات
+    foreach ($data['candles'] as $candle) {
+        $open_price = $candle['open'];
+        $close_price = $candle['close'];
+        $high_price = $candle['high'];
+        $low_price = $candle['low'];
+
+        // تحليل الشمعة
+        if ($close_price > $open_price) {
+            echo "الشمعة الصاعدة: $symbol\n";
+        } elseif ($close_price < $open_price) {
+            echo "الشمعة الهابطة: $symbol\n";
+        } else {
+            echo "الشمعة الجانبية: $symbol\n";
+        }
+
+        // تحليل مؤشرات التحليل
+        $sma = array_sum(array_column($data['candles'], 'close')) / count($data['candles']);
+        $ema = $sma * 2 / (count($data['candles']) + 1);
+        $rsi = 100 - (100 / (1 + ($close_price / $open_price)));
+
+        // إرسال التوصيات إلى Pocket Broker
+        if ($sma > $ema && $rsi < 30) {
+            echo "شراء $symbol\n";
+            // إرسال طلب الشراء إلى Pocket Broker
+        } elseif ($sma < $ema && $rsi > 70) {
+            echo "بيع $symbol\n";
+            // إرسال طلب البيع إلى Pocket Broker
+        }
+    }
+}
+
+// تشغيل البوت
+foreach ($symbols as $symbol) {
+    analyze_candles($symbol);
+}
